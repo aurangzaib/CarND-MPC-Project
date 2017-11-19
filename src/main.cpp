@@ -101,51 +101,53 @@ int main() {
           *
           */
 
-          // transform
+          // transformation
           // from: map coordinate system
           // to: vehicle coordinate system
           vector<double> waypoints_x, waypoints_y;
-          for (int loop = 0; loop < ptsx.size(); loop++) {
+          for (int loop = 0; loop < ptsx.size(); loop += 1) {
             // x and y terms
             double dx = ptsx[loop] - px, dy = ptsy[loop] - py;
             // x and y way points
             auto waypoint_x = dx * cos(-psi) - dy * sin(-psi);
-            auto waypoint_y = dy * cos(-psi) + dx * sin(-psi);
+            auto waypoint_y = dx * sin(-psi) + dy * cos(-psi);
             // push way points
             waypoints_x.push_back(waypoint_x);
             waypoints_y.push_back(waypoint_y);
           }
 
-          // typecast
+          // typecasting
           // from: std vector
           // to: eigen vector
           // https://forum.kde.org/viewtopic.php?f=74&t=94839
-          double* ptr_x = &waypoints_x[0];
+          double *ptr_x = &waypoints_x[0];
           Eigen::Map<Eigen::VectorXd> waypoints_x_eigen(ptr_x, 6);
-          double* ptr_y = &waypoints_y[0];
+          double *ptr_y = &waypoints_y[0];
           Eigen::Map<Eigen::VectorXd> waypoints_y_eigen(ptr_y, 6);
 
           // find 3rd order polynomial coefficients
           auto coeffs = polyfit(waypoints_x_eigen, waypoints_y_eigen, 3);
 
           // calculate the cross track error
-          double cte = polyeval(coeffs, px) - py; // current_y - total_y
+          auto fx = polyeval(coeffs, px);
+          double cte = fx - py; // current_y - total_y
 
           // calculate the orientation error
           // psi_desired = atan(coeff of f'(x))
-          double epsi = psi - atan(coeffs[1]); // psi - psi_reference
+          auto psi_desired = atan(coeffs[1]);
+          double epsi = psi - psi_desired;
 
           // vehicle state vector
           Eigen::VectorXd state(6);
-          state << px, py, psi, v, cte, epsi;
+          state << 0, 0, 0, v, cte, epsi;
 
           // call optimization solver and update state
           auto vars = mpc.Solve(state, coeffs);
-          state << vars[0], vars[1], vars[2], vars[3], vars[4], vars[5];
+//          state << vars[0], vars[1], vars[2], vars[3], vars[4], vars[5];
 
           // steering and acceleration
-          double steer_value = vars[6];
-          double throttle_value = vars[7];
+          double steer_value = vars[0];
+          double throttle_value = vars[1];
 
           json msgJson;
           // NOTE: Remember to divide by deg2rad(25) before you send the steering value back.
@@ -157,8 +159,12 @@ int main() {
           vector<double> mpc_x_vals;
           vector<double> mpc_y_vals;
 
-          //.. add (x,y) points to list here, points are in reference to the vehicle's coordinate system
           // the points in the simulator are connected by a Green line
+          // x and y are returned from the optimization solver
+          for (int loop = 2; loop < vars.size(); loop += 1) {
+            if (loop % 2 == 0) { mpc_x_vals.push_back(vars[loop]); }
+            else { mpc_y_vals.push_back(vars[loop]); }
+          }
 
           msgJson["mpc_x"] = mpc_x_vals;
           msgJson["mpc_y"] = mpc_y_vals;
@@ -167,12 +173,17 @@ int main() {
           vector<double> next_x_vals;
           vector<double> next_y_vals;
 
-          //.. add (x,y) points to list here, points are in reference to the vehicle's coordinate system
           // the points in the simulator are connected by a Yellow line
+          // x -> values from 0 to 100 with interval of 5
+          // y -> f(x) using polyeval
+          for (double car_heading = 0; car_heading < 100; car_heading += 5) {
+            double x = car_heading, y = polyeval(coeffs, car_heading);
+            next_x_vals.push_back(x);
+            next_y_vals.push_back(fx);
+          }
 
           msgJson["next_x"] = next_x_vals;
           msgJson["next_y"] = next_y_vals;
-
 
           auto msg = "42[\"steer\"," + msgJson.dump() + "]";
           std::cout << msg << std::endl;
@@ -185,7 +196,7 @@ int main() {
           //
           // NOTE: REMEMBER TO SET THIS TO 100 MILLISECONDS BEFORE
           // SUBMITTING.
-          this_thread::sleep_for(chrono::milliseconds(100));
+          // this_thread::sleep_for(chrono::milliseconds(100));
           ws.send(msg.data(), msg.length(), uWS::OpCode::TEXT);
         }
       } else {

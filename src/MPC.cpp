@@ -26,8 +26,7 @@ const double Lf = 2.67;
 const double ref_v = 40;
 
 // The solver takes all the state variables and actuator
-// variables in a singular vector. Thus, we should to establish
-// when one variable starts and another ends to make our lives easier.
+// variables in a singular vector.
 // define array positions of state variables, errors, actuators
 size_t x_start = 0;
 size_t y_start = x_start + N;
@@ -49,13 +48,13 @@ public:
 
   void operator()(ADvector &fg, const ADvector &vars) {
     /*
-    * fg is a vector where cost function and vehicle model/constraints are defined
-    * vars is a vector containing all variables used by cost function i.e:
-    *    x, y, v, psi --> state
-    *    cte, epsi    --> errors
-    *    delta,a      --> control inputs
-    * fg[0] contains cost
-    */
+     * fg is a vector where cost function and vehicle model/constraints are defined
+     * vars is a vector containing all variables used by cost function i.e:
+     *    x, y, v, psi --> state
+     *    cte, epsi    --> errors
+     *    delta,a      --> control inputs
+     * fg[0] contains cost
+     */
 
     // set initial cost
     fg[0] = 0;
@@ -98,17 +97,17 @@ public:
       AD<double> v0 = vars[v_start + t - 1], v1 = vars[v_start + t];
       AD<double> cte0 = vars[cte_start + t - 1], cte1 = vars[cte_start + t];
       AD<double> epsi0 = vars[epsi_start + t - 1], epsi1 = vars[epsi_start + t];
-      AD<double> delta0 = vars[delta_start + t - 1], delta1 = vars[delta_start + t];
-      AD<double> a0 = vars[a_start + t - 1];
+      AD<double> delta = -vars[delta_start + t - 1];
+      AD<double> a = vars[a_start + t - 1];
       AD<double> f0 = coeffs[0] + coeffs[1] * x0;
       AD<double> psi_des0 = CppAD::atan(coeffs[1]);
 
       fg[1 + x_start + t] = x1 - (x0 + v0 * CppAD::cos(psi0) * dt);
       fg[1 + y_start + t] = y1 - (y0 + v0 * CppAD::sin(psi0) * dt);
-      fg[1 + psi_start + t] = psi1 - (psi0 + v0 * (delta0 / Lf) * dt);
-      fg[1 + v_start + t] = v1 - (v0 + a0 * dt);
+      fg[1 + psi_start + t] = psi1 - (psi0 + v0 * (delta / Lf) * dt);
+      fg[1 + v_start + t] = v1 - (v0 + a * dt);
       fg[1 + cte_start + t] = cte1 - ((f0 - y0) + v0 * CppAD::sin(epsi0) * dt);
-      fg[1 + epsi_start + t] = epsi1 - (psi0 - psi_des0 + v0 * (delta0 / Lf) * dt);
+      fg[1 + epsi_start + t] = epsi1 - (psi0 - psi_des0 + v0 * (delta / Lf) * dt);
     }
   }
 };
@@ -143,8 +142,8 @@ vector<double> MPC::Solve(Eigen::VectorXd state, Eigen::VectorXd coeffs) {
   // Initial value of the independent variables.
   // SHOULD BE 0 besides initial state.
   Dvector vars(n_vars);
-  for (size_t t = 0; t < n_vars; t++) {
-    vars[t] = 0.0;
+  for (size_t t = 0; t < n_vars; t += 1) {
+    vars[t] = 0;
   }
 
   // set initial variable values
@@ -159,17 +158,17 @@ vector<double> MPC::Solve(Eigen::VectorXd state, Eigen::VectorXd coeffs) {
   Dvector vars_lowerbound(n_vars);
   Dvector vars_upperbound(n_vars);
   // boundaries for x, y, psi, v, cte, epsi
-  for (int t = 0; t < delta_start; t++) {
+  for (int t = 0; t < delta_start; t += 1) {
     vars_lowerbound[t] = -1.0e19;
     vars_upperbound[t] = +1.0e19;
   }
   // boundaries for steering angle
-  for (size_t t = delta_start; t < a_start; t++) {
+  for (size_t t = delta_start; t < a_start; t += 1) {
     vars_lowerbound[t] = -25 * M_PI / 180;
     vars_upperbound[t] = +25 * M_PI / 180;
   }
   // boundaries for acceleration
-  for (size_t t = a_start; t < n_vars; t++) {
+  for (size_t t = a_start; t < n_vars; t += 1) {
     vars_lowerbound[t] = -1.0;
     vars_upperbound[t] = +1.0;
   }
@@ -180,7 +179,7 @@ vector<double> MPC::Solve(Eigen::VectorXd state, Eigen::VectorXd coeffs) {
   Dvector constraints_upperbound(n_constraints);
 
   // all are zero except the initial state indices
-  for (size_t t = 0; t < n_constraints; t++) {
+  for (size_t t = 0; t < n_constraints; t += 1) {
     constraints_lowerbound[t] = 0.0;
     constraints_upperbound[t] = 0.0;
   }
@@ -240,10 +239,14 @@ vector<double> MPC::Solve(Eigen::VectorXd state, Eigen::VectorXd coeffs) {
   auto cost = solution.obj_value;
   std::cout << "Cost " << cost << std::endl;
 
-  // TODO: Return the first actuator values. The variables can be accessed with
-  // `solution.x[i]`.
-  //
-  // {...} is shorthand for creating a vector, so auto x1 = {1.0,2.0}
-  // creates a 2 element double vector.
-  return {};
+  // steering angle (delta) and throttle (a)
+  vector<double> actuations_and_mpc_xy = {solution.x[delta_start], solution.x[a_start]};
+
+  // x and y trajectory
+  for (int loop = 0; loop < N - 1; loop += 1) {
+    actuations_and_mpc_xy.push_back(solution.x[x_start + loop + 1]);
+    actuations_and_mpc_xy.push_back(solution.x[y_start + loop + 1]);
+  }
+
+  return actuations_and_mpc_xy;
 }
