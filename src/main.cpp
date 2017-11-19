@@ -14,7 +14,9 @@ using json = nlohmann::json;
 
 // For converting back and forth between radians and degrees.
 constexpr double pi() { return M_PI; }
+
 double deg2rad(double x) { return x * pi() / 180; }
+
 double rad2deg(double x) { return x * 180 / pi(); }
 
 // Checks if the SocketIO event has JSON data.
@@ -98,13 +100,57 @@ int main() {
           * Both are in between [-1, 1].
           *
           */
-          double steer_value;
-          double throttle_value;
+
+          // transform
+          // from: map coordinate system
+          // to: vehicle coordinate system
+          vector<double> waypoints_x, waypoints_y;
+          for (int loop = 0; loop < ptsx.size(); loop++) {
+            // x and y terms
+            double dx = ptsx[loop] - px, dy = ptsy[loop] - py;
+            // x and y way points
+            auto waypoint_x = dx * cos(-psi) - dy * sin(-psi);
+            auto waypoint_y = dy * cos(-psi) + dx * sin(-psi);
+            // push way points
+            waypoints_x.push_back(waypoint_x);
+            waypoints_y.push_back(waypoint_y);
+          }
+
+          // typecast
+          // from: std vector
+          // to: eigen vector
+          // https://forum.kde.org/viewtopic.php?f=74&t=94839
+          double* ptr_x = &waypoints_x[0];
+          Eigen::Map<Eigen::VectorXd> waypoints_x_eigen(ptr_x, 6);
+          double* ptr_y = &waypoints_y[0];
+          Eigen::Map<Eigen::VectorXd> waypoints_y_eigen(ptr_y, 6);
+
+          // find 3rd order polynomial coefficients
+          auto coeffs = polyfit(waypoints_x_eigen, waypoints_y_eigen, 3);
+
+          // calculate the cross track error
+          double cte = polyeval(coeffs, px) - py; // current_y - total_y
+
+          // calculate the orientation error
+          // psi_desired = atan(coeff of f'(x))
+          double epsi = psi - atan(coeffs[1]); // psi - psi_reference
+
+          // vehicle state vector
+          Eigen::VectorXd state(6);
+          state << px, py, psi, v, cte, epsi;
+
+          // call optimization solver and update state
+          auto vars = mpc.Solve(state, coeffs);
+          state << vars[0], vars[1], vars[2], vars[3], vars[4], vars[5];
+
+          // steering and acceleration
+          double steer_value = vars[6];
+          double throttle_value = vars[7];
 
           json msgJson;
           // NOTE: Remember to divide by deg2rad(25) before you send the steering value back.
           // Otherwise the values will be in between [-deg2rad(25), deg2rad(25] instead of [-1, 1].
-          msgJson["steering_angle"] = steer_value;
+          msgJson["steering_angle"] = steer_value / deg2rad(25);
           msgJson["throttle"] = throttle_value;
 
           //Display the MPC predicted trajectory 
