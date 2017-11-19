@@ -244,6 +244,9 @@ vector<double> MPC::Solve(Eigen::VectorXd state, Eigen::VectorXd coeffs) {
   auto cost = solution.obj_value;
   std::cout << "Cost " << cost << std::endl;
 
+  // getting actuations and state values from Ipopt solve
+  // https://www.coin-or.org/CppAD/Doc/ipopt_solve.htm
+
   // steering angle (delta) and throttle (a)
   vector<double> actuations_and_mpc_xy = {solution.x[delta_start], solution.x[a_start]};
 
