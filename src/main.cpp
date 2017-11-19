@@ -179,7 +179,7 @@ int main() {
           for (double car_heading = 0; car_heading < 100; car_heading += 5) {
             double x = car_heading, y = polyeval(coeffs, car_heading);
             next_x_vals.push_back(x);
-            next_y_vals.push_back(fx);
+            next_y_vals.push_back(y);
           }
 
           msgJson["next_x"] = next_x_vals;
@@ -196,7 +196,7 @@ int main() {
           //
           // NOTE: REMEMBER TO SET THIS TO 100 MILLISECONDS BEFORE
           // SUBMITTING.
-          // this_thread::sleep_for(chrono::milliseconds(100));
+          this_thread::sleep_for(chrono::milliseconds(100));
           ws.send(msg.data(), msg.length(), uWS::OpCode::TEXT);
         }
       } else {

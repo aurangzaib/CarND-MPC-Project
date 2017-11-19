@@ -97,11 +97,16 @@ public:
       AD<double> v0 = vars[v_start + t - 1], v1 = vars[v_start + t];
       AD<double> cte0 = vars[cte_start + t - 1], cte1 = vars[cte_start + t];
       AD<double> epsi0 = vars[epsi_start + t - 1], epsi1 = vars[epsi_start + t];
-      AD<double> delta = -vars[delta_start + t - 1];
+      AD<double> delta = vars[delta_start + t - 1] * -1;
       AD<double> a = vars[a_start + t - 1];
       AD<double> f0 = coeffs[0] + coeffs[1] * x0;
       AD<double> psi_des0 = CppAD::atan(coeffs[1]);
-
+      // using previous values for actuations
+      // handling latency
+      if (t > 1) {
+        a = vars[a_start + t - 2];
+        delta = vars[delta_start + t - 2] * -1;
+      }
       fg[1 + x_start + t] = x1 - (x0 + v0 * CppAD::cos(psi0) * dt);
       fg[1 + y_start + t] = y1 - (y0 + v0 * CppAD::sin(psi0) * dt);
       fg[1 + psi_start + t] = psi1 - (psi0 + v0 * (delta / Lf) * dt);
