@@ -95,11 +95,11 @@ int main() {
           double v = j[1]["speed"];
 
           /*
-          * TODO: Calculate steering angle and throttle using MPC.
-          *
-          * Both are in between [-1, 1].
-          *
-          */
+           * Calculate steering angle and throttle using MPC.
+           *
+           * Both are in between [-1, 1].
+           *
+           */
 
           // transformation
           // from: map coordinate system
@@ -143,7 +143,6 @@ int main() {
 
           // call optimization solver and update state
           auto vars = mpc.Solve(state, coeffs);
-//          state << vars[0], vars[1], vars[2], vars[3], vars[4], vars[5];
 
           // steering and acceleration
           double steer_value = vars[0];
@@ -176,8 +175,9 @@ int main() {
           // the points in the simulator are connected by a Yellow line
           // x -> values from 0 to 100 with interval of 5
           // y -> f(x) using polyeval
-          for (double car_heading = 0; car_heading < 100; car_heading += 5) {
-            double x = car_heading, y = polyeval(coeffs, car_heading);
+          for (int car_heading = 0; car_heading < 100; car_heading += 5) {
+            auto x = double(car_heading);
+            auto y = polyeval(coeffs, x);
             next_x_vals.push_back(x);
             next_y_vals.push_back(y);
           }
@@ -189,13 +189,7 @@ int main() {
           std::cout << msg << std::endl;
           // Latency
           // The purpose is to mimic real driving conditions where
-          // the car does actuate the commands instantly.
-          //
-          // Feel free to play around with this value but should be to drive
-          // around the track with 100ms latency.
-          //
-          // NOTE: REMEMBER TO SET THIS TO 100 MILLISECONDS BEFORE
-          // SUBMITTING.
+          // the car does not actuate the commands instantly.
           this_thread::sleep_for(chrono::milliseconds(100));
           ws.send(msg.data(), msg.length(), uWS::OpCode::TEXT);
         }
@@ -210,8 +204,7 @@ int main() {
   // We don't need this since we're not using HTTP but if it's removed the
   // program
   // doesn't compile :-(
-  h.onHttpRequest([](uWS::HttpResponse *res, uWS::HttpRequest req, char *data,
-                     size_t, size_t) {
+  h.onHttpRequest([](uWS::HttpResponse *res, uWS::HttpRequest req, char *data, size_t, size_t) {
     const std::string s = "<h1>Hello world!</h1>";
     if (req.getUrl().valueLength == 1) {
       res->end(s.data(), s.length());

@@ -1,7 +1,51 @@
 # CarND-Controls-MPC
 Self-Driving Car Engineer Nanodegree Program
 
+Algorithm 
 ---
+
+```
+Define N, dt, Lf and reference velocity (v_ref)
+
+Define  start positions of States, Errors and Actuations (control inputs) for vars and constraints (fg)
+
+Set initial cost fg[0] for errors:
+    cte error
+    orientation error
+    velocity error
+
+Set initial cost fg[0] for control inputs:
+    acceleration
+    steering angle
+
+Set initial cost fg[0] for sequential smoothing:
+    acceleration
+    steering angle
+
+Set State and errors in contraints. Control input is not part of constraints.
+
+In Optimization Solver:
+    Define n_vars = (N * 6) + (N - 1) * 2
+    
+    Define n_constraints = N * 6
+    
+    Update vars from values of State. Control input set to zero
+    
+    Set lower and upper boundaries for vars
+    
+    Set lower and upper boundaries for constraints    
+
+    Create instance of FG_Eval
+    
+    Pass it to Ipopt solve method. It will return solution object
+    
+    Solution object contains:
+        Cost
+        Optimized acuatations
+        State values
+    
+    Return Actuations and (x, y) states to main function    
+```
 
 ## Dependencies
 
