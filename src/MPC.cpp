@@ -4,6 +4,10 @@
 
 using CppAD::AD;
 
+/****************************
+Define initial MPC parameters
+****************************/
+
 // define N and dt
 // N  -> number of actuations
 // dt -> time elapsed between actuations
@@ -23,6 +27,10 @@ const double Lf = 2.67;
 
 // reference velocity
 const double ref_v = 40;
+
+/****************************
+Define start array positions
+****************************/
 
 // The solver takes all the state variables and actuator
 // variables in a singular vector.
@@ -56,6 +64,11 @@ public:
      * fg[0] contains cost
      */
 
+    /****************************
+     Set Cost for Errors, Actuation
+     and Sequential Smoothing
+     ****************************/
+
     // set initial cost
     fg[0] = 0;
     // cost based on reference state
@@ -78,6 +91,11 @@ public:
       fg[0] += 500 * CppAD::pow(vars[delta_start + t + 1] - vars[delta_start + t], 2);
       fg[0] += CppAD::pow(vars[a_start + t + 1] - vars[a_start + t], 2);
     }
+
+    /****************************
+     Set state and errors in constraints
+     Actuation is not part of constraints
+     ****************************/
 
     // set values of state, and errors variables
     fg[1 + x_start] = vars[x_start];
@@ -220,8 +238,9 @@ vector<double> MPC::Solve(Eigen::VectorXd state, Eigen::VectorXd coeffs) {
   CppAD::ipopt::solve_result<Dvector> solution;
 
   // solve the problem
-  CppAD::ipopt::solve;
-  (options, vars, vars_lowerbound, vars_upperbound, constraints_lowerbound, constraints_upperbound, fg_eval, solution);
+  CppAD::ipopt::solve(options, vars, vars_lowerbound,
+                      vars_upperbound, constraints_lowerbound,
+                      constraints_upperbound, fg_eval, solution);
 
   // Check some of the solution values
   ok &= solution.status == CppAD::ipopt::solve_result<Dvector>::success;

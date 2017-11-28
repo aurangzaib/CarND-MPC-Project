@@ -107,7 +107,8 @@ int main() {
           vector<double> waypoints_x, waypoints_y;
           for (int loop = 0; loop < ptsx.size(); loop += 1) {
             // x and y terms
-            double dx = ptsx[loop] - px, dy = ptsy[loop] - py;
+            double dx = ptsx[loop] - px;
+            double dy = ptsy[loop] - py;
             // x and y way points
             auto waypoint_x = dx * cos(-psi) - dy * sin(-psi);
             auto waypoint_y = dx * sin(-psi) + dy * cos(-psi);
@@ -129,12 +130,12 @@ int main() {
           auto coeffs = polyfit(waypoints_x_eigen, waypoints_y_eigen, 3);
 
           // calculate the cross track error
-          auto fx = polyeval(coeffs, px);
+          double fx = polyeval(coeffs, px);
           double cte = fx - py; // current_y - total_y
 
           // calculate the orientation error
           // psi_desired = atan(coeff of f'(x))
-          auto psi_desired = atan(coeffs[1]);
+          double psi_desired = atan(coeffs[1]);
           double epsi = psi - psi_desired;
 
           // vehicle state vector

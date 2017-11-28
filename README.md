@@ -7,7 +7,7 @@ Algorithm
 ```
 Define N, dt, Lf and reference velocity (v_ref)
 
-Define  start positions of States, Errors and Actuations (control inputs) for vars and constraints (fg)
+Define start array positions of States, Errors and Actuations (control inputs) for vars and constraints (fg)
 
 Set initial cost fg[0] for errors:
     cte error
