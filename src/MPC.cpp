@@ -114,9 +114,9 @@ public:
       AD<double> psi0 = vars[psi_start + t - 1], psi1 = vars[psi_start + t];
       AD<double> v0 = vars[v_start + t - 1], v1 = vars[v_start + t];
       AD<double> f0 = coeffs[0] + coeffs[1] * x0;
-      AD<double> cte0 = vars[x_start + t - 1], cte1 = f0 - y0;
+      AD<double> cte0 = f0 - y0, cte1 = vars[cte_start + t];
       AD<double> epsi0 = psi0 - CppAD::atan(coeffs[1]), epsi1 = vars[epsi_start + t + 1];
-      AD<double> delta = vars[delta_start + t - 1];
+      AD<double> delta = vars[delta_start + t - 1] * -1;
       AD<double> a = vars[a_start + t - 1];
       // using previous values for actuations
       // handling latency
@@ -126,10 +126,10 @@ public:
       }
       fg[1 + x_start + t] = x1 - (x0 + v0 * CppAD::cos(psi0) * dt);
       fg[1 + y_start + t] = y1 - (y0 + v0 * CppAD::sin(psi0) * dt);
-      fg[1 + psi_start + t] = psi1 - (psi0 + v0 * (-delta / Lf) * dt);
+      fg[1 + psi_start + t] = psi1 - (psi0 + v0 * (delta / Lf) * dt);
       fg[1 + v_start + t] = v1 - (v0 + a * dt);
       fg[1 + cte_start + t] = cte1 - (cte0 + v0 * CppAD::sin(epsi0) * dt);
-      fg[1 + epsi_start + t] = epsi1 - (epsi0 + v0 * (-delta / Lf) * dt);
+      fg[1 + epsi_start + t] = epsi1 - (epsi0 + v0 * (delta / Lf) * dt);
     }
   }
 };
@@ -238,9 +238,9 @@ vector<double> MPC::Solve(Eigen::VectorXd state, Eigen::VectorXd coeffs) {
   CppAD::ipopt::solve_result<Dvector> solution;
 
   // solve the problem
-  CppAD::ipopt::solve(options, vars, vars_lowerbound,
-                      vars_upperbound, constraints_lowerbound,
-                      constraints_upperbound, fg_eval, solution);
+  CppAD::ipopt::solve<Dvector, FG_eval>(options, vars, vars_lowerbound,
+                                        vars_upperbound, constraints_lowerbound,
+                                        constraints_upperbound, fg_eval, solution);
 
   // Check some of the solution values
   ok &= solution.status == CppAD::ipopt::solve_result<Dvector>::success;
