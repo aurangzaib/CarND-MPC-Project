@@ -89,58 +89,58 @@ int main() {
           // j[1] is the data JSON object
           vector<double> ptsx = j[1]["ptsx"];
           vector<double> ptsy = j[1]["ptsy"];
-          double px = j[1]["x"];
-          double py = j[1]["y"];
-          double psi = j[1]["psi"];
-          double v = j[1]["speed"];
-
+          const double px = j[1]["x"];
+          const double py = j[1]["y"];
+          const double psi = j[1]["psi"];
+          const double v = j[1]["speed"];
+          const double steering_angle = j[1]["steering_angle"];
+          const double throttle = j[1]["throttle"];
           /*
            * Calculate steering angle and throttle using MPC.
-           *
            * Both are in between [-1, 1].
-           *
            */
 
-          // transformation
+          /****************************
+           Transformation
+           ****************************/
+
           // from: map coordinate system
           // to: vehicle coordinate system
-          vector<double> waypoints_x, waypoints_y;
-          for (int loop = 0; loop < ptsx.size(); loop += 1) {
+          const int N = ptsx.size();
+          Eigen::VectorXd waypoints_x(N), waypoints_y(N);
+          for (int loop = 0; loop < N; loop += 1) {
             // x and y terms
             double dx = ptsx[loop] - px;
             double dy = ptsy[loop] - py;
             // x and y way points
-            auto waypoint_x = dx * cos(-psi) - dy * sin(-psi);
-            auto waypoint_y = dx * sin(-psi) + dy * cos(-psi);
-            // push way points
-            waypoints_x.push_back(waypoint_x);
-            waypoints_y.push_back(waypoint_y);
+            waypoints_x(loop) = dx * cos(-psi) - dy * sin(-psi);
+            waypoints_y(loop) = dx * sin(-psi) + dy * cos(-psi);
           }
 
-          // typecasting
-          // from: std vector
-          // to: eigen vector
-          // https://forum.kde.org/viewtopic.php?f=74&t=94839
-          double *ptr_x = &waypoints_x[0];
-          Eigen::Map<Eigen::VectorXd> waypoints_x_eigen(ptr_x, 6);
-          double *ptr_y = &waypoints_y[0];
-          Eigen::Map<Eigen::VectorXd> waypoints_y_eigen(ptr_y, 6);
-
           // find 3rd order polynomial coefficients
-          auto coeffs = polyfit(waypoints_x_eigen, waypoints_y_eigen, 3);
+          auto coeffs = polyfit(waypoints_x, waypoints_y, 3);
 
           // calculate the cross track error
-          double fx = polyeval(coeffs, px);
-          double cte = fx - py; // current_y - total_y
+          const double fx = polyeval(coeffs, px);
+          const double cte = fx - py; // current_y - total_y
 
           // calculate the orientation error
           // psi_desired = atan(coeff of f'(x))
-          double psi_desired = atan(coeffs[1]);
-          double epsi = psi - psi_desired;
+          const double psi_desired = atan(coeffs[1]);
+          const double epsi = psi - psi_desired;
+          const double Lf = 2.67;
+          const double dt = 0.05;
+          const double px_ = v * dt, 
+                       py_ = 0.0, 
+                       psi_ = v * (steering_angle / Lf) * dt, 
+                       v_ = v + throttle * dt, 
+                       cte_ = cte + v * sin(epsi) * dt, 
+                       epsi_ = epsi + v * (steering_angle / Lf) * dt;
 
+          // TODO: use kinematic model instead of sending 0, 0, 0
           // vehicle state vector
           Eigen::VectorXd state(6);
-          state << 0, 0, 0, v, cte, epsi;
+          state << px_, py_, psi_, v_, cte_, epsi_;
 
           // call optimization solver and update state
           auto vars = mpc.Solve(state, coeffs);
@@ -152,7 +152,7 @@ int main() {
           json msgJson;
           // NOTE: Remember to divide by deg2rad(25) before you send the steering value back.
           // Otherwise the values will be in between [-deg2rad(25), deg2rad(25] instead of [-1, 1].
-          msgJson["steering_angle"] = steer_value / deg2rad(25);
+          msgJson["steering_angle"] = - steer_value / deg2rad(25);
           msgJson["throttle"] = throttle_value;
 
           //Display the MPC predicted trajectory 
@@ -191,7 +191,7 @@ int main() {
           // Latency
           // The purpose is to mimic real driving conditions where
           // the car does not actuate the commands instantly.
-          this_thread::sleep_for(chrono::milliseconds(100));
+          // this_thread::sleep_for(chrono::milliseconds(100));
           ws.send(msg.data(), msg.length(), uWS::OpCode::TEXT);
         }
       } else {

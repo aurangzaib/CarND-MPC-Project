@@ -26,7 +26,14 @@ const double dt = 0.05;
 const double Lf = 2.67;
 
 // reference velocity
-const double ref_v = 40;
+const double ref_v = 40.0;
+
+// weights for cost function
+const double W_CTE = 8.0;
+const double W_EPSI = 0.30;
+const double W_V = 0.261;
+const double W_DELTA = 6000.0;
+const double W_A = 0.00001;
 
 /****************************
 Define start array positions
@@ -74,22 +81,22 @@ public:
     // cost based on reference state
     for (int t = 0; t < N; t++) {
       // cte error
-      fg[0] += CppAD::pow(vars[cte_start + t], 2);
+      fg[0] += W_CTE  * CppAD::pow(vars[cte_start + t], 2);
       // orientation (heading) error
-      fg[0] += CppAD::pow(vars[epsi_start + t], 2);
+      fg[0] += W_EPSI * CppAD::pow(vars[epsi_start + t], 2);
       // velocity error
-      fg[0] += CppAD::pow(vars[v_start + t] - ref_v, 2);
+      fg[0] += W_V    * CppAD::pow(vars[v_start + t] - ref_v, 2);
     }
     // cost based on control inputs
     // no abrupt control input change
     for (int t = 0; t < N - 1; t++) {
-      fg[0] += 200 * CppAD::pow(vars[delta_start + t], 2);
-      fg[0] += CppAD::pow(vars[a_start + t], 2);
+      fg[0] += W_DELTA * CppAD::pow(vars[delta_start + t], 2);
+      fg[0] += W_A     * CppAD::pow(vars[a_start + t], 2);
     }
     // minimize value gap between sequential actuations
     for (int t = 0; t < N - 2; t++) {
-      fg[0] += 500 * CppAD::pow(vars[delta_start + t + 1] - vars[delta_start + t], 2);
-      fg[0] += CppAD::pow(vars[a_start + t + 1] - vars[a_start + t], 2);
+      fg[0] += W_DELTA * CppAD::pow(vars[delta_start + t + 1] - vars[delta_start + t], 2);
+      fg[0] += W_A     * CppAD::pow(vars[a_start + t + 1] - vars[a_start + t], 2);
     }
 
     /****************************
@@ -109,21 +116,31 @@ public:
     // 0 is initial state
     // initial states are not part of optimizer solver
     for (int t = 1; t < N; t++) {
-      AD<double> x0 = vars[x_start + t - 1], x1 = vars[x_start + t];
-      AD<double> y0 = vars[y_start + t - 1], y1 = vars[y_start + t];
-      AD<double> psi0 = vars[psi_start + t - 1], psi1 = vars[psi_start + t];
-      AD<double> v0 = vars[v_start + t - 1], v1 = vars[v_start + t];
+      AD<double> x0       = vars[x_start + t - 1], 
+                 x1       = vars[x_start + t];
+      AD<double> y0       = vars[y_start + t - 1], 
+                 y1       = vars[y_start + t];
+      AD<double> psi0     = vars[psi_start + t - 1], 
+                 psi1     = vars[psi_start + t];
+      AD<double> v0       = vars[v_start + t - 1], 
+                 v1       = vars[v_start + t];
       AD<double> f0 = coeffs[0] + coeffs[1] * x0;
-      AD<double> cte0 = f0 - y0, cte1 = vars[cte_start + t];
-      AD<double> epsi0 = psi0 - CppAD::atan(coeffs[1]), epsi1 = vars[epsi_start + t + 1];
-      AD<double> delta = vars[delta_start + t - 1] * -1;
-      AD<double> a = vars[a_start + t - 1];
+                 
+      AD<double> cte0     = f0 - y0, 
+                 cte1     = vars[cte_start + t];
+      AD<double> psi_des  = CppAD::atan(coeffs[1]), // fx'
+                 epsi0    = psi0 - psi_des, 
+                 epsi1    = vars[epsi_start + t + 1];
+      AD<double> delta    = vars[delta_start + t - 1];
+      AD<double> a        = vars[a_start + t - 1];
+      
       // using previous values for actuations
       // handling latency
-      if (t > 1) {
-        a = vars[a_start + t - 2];
-        delta = vars[delta_start + t - 2] * -1;
-      }
+      // if (t > 1) {
+      //   a = vars[a_start + t - 2];
+      //   delta = vars[delta_start + t - 2] * -1;
+      // }
+      
       fg[1 + x_start + t] = x1 - (x0 + v0 * CppAD::cos(psi0) * dt);
       fg[1 + y_start + t] = y1 - (y0 + v0 * CppAD::sin(psi0) * dt);
       fg[1 + psi_start + t] = psi1 - (psi0 + v0 * (delta / Lf) * dt);
@@ -164,8 +181,8 @@ vector<double> MPC::Solve(Eigen::VectorXd state, Eigen::VectorXd coeffs) {
   // Initial value of the independent variables.
   // SHOULD BE 0 besides initial state.
   Dvector vars(n_vars);
-  for (size_t t = 0; t < n_vars; t += 1) {
-    vars[t] = 0;
+  for (size_t loop = 0; loop < n_vars; loop += 1) {
+    vars[loop] = 0;
   }
 
   // set initial variable values
@@ -180,19 +197,19 @@ vector<double> MPC::Solve(Eigen::VectorXd state, Eigen::VectorXd coeffs) {
   Dvector vars_lowerbound(n_vars);
   Dvector vars_upperbound(n_vars);
   // boundaries for x, y, psi, v, cte, epsi
-  for (int t = 0; t < delta_start; t += 1) {
-    vars_lowerbound[t] = -1.0e19;
-    vars_upperbound[t] = +1.0e19;
+  for (int loop = 0; loop < delta_start; loop += 1) {
+    vars_lowerbound[loop] = -1.0e19;
+    vars_upperbound[loop] = +1.0e19;
   }
   // boundaries for steering angle
-  for (size_t t = delta_start; t < a_start; t += 1) {
-    vars_lowerbound[t] = -25 * M_PI / 180;
-    vars_upperbound[t] = +25 * M_PI / 180;
+  for (size_t loop = delta_start; loop < a_start; loop += 1) {
+    vars_lowerbound[loop] = -25 * M_PI / 180;
+    vars_upperbound[loop] = +25 * M_PI / 180;
   }
   // boundaries for acceleration
-  for (size_t t = a_start; t < n_vars; t += 1) {
-    vars_lowerbound[t] = -1.0;
-    vars_upperbound[t] = +1.0;
+  for (size_t loop = a_start; loop < n_vars; loop += 1) {
+    vars_lowerbound[loop] = -1.0;
+    vars_upperbound[loop] = +1.0;
   }
 
   // Lower and upper limits for the constraints
@@ -201,9 +218,9 @@ vector<double> MPC::Solve(Eigen::VectorXd state, Eigen::VectorXd coeffs) {
   Dvector constraints_upperbound(n_constraints);
 
   // all are zero except the initial state indices
-  for (size_t t = 0; t < n_constraints; t += 1) {
-    constraints_lowerbound[t] = 0.0;
-    constraints_upperbound[t] = 0.0;
+  for (size_t loop = 0; loop < n_constraints; loop += 1) {
+    constraints_lowerbound[loop] = 0.0;
+    constraints_upperbound[loop] = 0.0;
   }
 
   constraints_lowerbound[x_start] = x;
@@ -252,6 +269,11 @@ vector<double> MPC::Solve(Eigen::VectorXd state, Eigen::VectorXd coeffs) {
 
   // steering angle (delta) and throttle (a)
   vector<double> actuations_and_mpc_xy = {solution.x[delta_start], solution.x[a_start]};
+
+  // TODO:
+  // instead of returning any value
+  // these values can be stored in object of MPC class
+  // then directly use them in main class instead of returning from here
 
   // x and y trajectory
   for (int loop = 0; loop < N - 1; loop += 1) {
