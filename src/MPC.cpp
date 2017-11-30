@@ -4,38 +4,7 @@
 
 using CppAD::AD;
 
-/****************************
-Define initial MPC parameters
-****************************/
-
-// define N and dt
-// N  -> number of actuations
-// dt -> time elapsed between actuations
-// T  -> prediction horizon -> N * dt
-const size_t N = 25;
-const double dt = 0.05;
-
-// Model was obtained by measuring the radius formed by running the vehicle in the
-// simulator around in a circle with a constant steering angle and velocity on a
-// flat terrain.
-//
-// Lf was tuned until the the radius formed by the simulating the model
-// presented in the classroom matched the previous radius.
-//
-// This is the length from front to CoG that has a similar radius.
-const double Lf = 2.67;
-
-// reference velocity
-const double ref_v = 45.0;
-
-// weights for cost function
-// weight determines importance
-// of a cost function
-const double W_CTE = 8.0;
-const double W_EPSI = 0.30;
-const double W_V = 0.261;
-const double W_DELTA = 6000.0;
-const double W_A = 0.00001;
+hyper_params params;
 
 /****************************
 Define start array positions
@@ -46,13 +15,13 @@ Define start array positions
 // define array positions of state variables, errors, actuators
 // define start positions
 size_t x_start = 0;
-size_t y_start = x_start + N;
-size_t psi_start = y_start + N;
-size_t v_start = psi_start + N;
-size_t cte_start = v_start + N;
-size_t epsi_start = cte_start + N;
-size_t delta_start = epsi_start + N;
-size_t a_start = delta_start + N - 1;
+size_t y_start = x_start + params.N;
+size_t psi_start = y_start + params.N;
+size_t v_start = psi_start + params.N;
+size_t cte_start = v_start + params.N;
+size_t epsi_start = cte_start + params.N;
+size_t delta_start = epsi_start + params.N;
+size_t a_start = delta_start + params.N - 1;
 
 class FG_eval {
 public:
@@ -69,7 +38,7 @@ public:
      * vars is a vector containing all variables used by cost function i.e:
      *    x, y, v, psi --> state
      *    cte, epsi    --> errors
-     *    delta,a      --> control inputs
+     *    delta, a      --> control inputs
      * fg[0] contains cost
      */
 
@@ -81,24 +50,24 @@ public:
     // set initial cost
     fg[0] = 0;
     // cost based on reference state
-    for (int t = 0; t < N; t++) {
+    for (int t = 0; t < params.N; t++) {
       // cte error
-      fg[0] += W_CTE * CppAD::pow(vars[cte_start + t], 2);
+      fg[0] += params.weight_cte * CppAD::pow(vars[cte_start + t], 2);
       // orientation (heading) error
-      fg[0] += W_EPSI * CppAD::pow(vars[epsi_start + t], 2);
+      fg[0] += params.weight_epsi * CppAD::pow(vars[epsi_start + t], 2);
       // velocity error
-      fg[0] += W_V * CppAD::pow(vars[v_start + t] - ref_v, 2);
+      fg[0] += params.weight_v * CppAD::pow(vars[v_start + t] - params.ref_v, 2);
     }
     // cost based on control inputs
     // no abrupt control input change
-    for (int t = 0; t < N - 1; t++) {
-      fg[0] += W_DELTA * CppAD::pow(vars[delta_start + t], 2);
-      fg[0] += W_A * CppAD::pow(vars[a_start + t], 2);
+    for (int t = 0; t < params.N - 1; t++) {
+      fg[0] += params.weight_delta * CppAD::pow(vars[delta_start + t], 2);
+      fg[0] += params.weight_a * CppAD::pow(vars[a_start + t], 2);
     }
     // minimize value gap between sequential actuations
-    for (int t = 0; t < N - 2; t++) {
-      fg[0] += W_DELTA * CppAD::pow(vars[delta_start + t + 1] - vars[delta_start + t], 2);
-      fg[0] += W_A * CppAD::pow(vars[a_start + t + 1] - vars[a_start + t], 2);
+    for (int t = 0; t < params.N - 2; t++) {
+      fg[0] += params.weight_delta_change * CppAD::pow(vars[delta_start + t + 1] - vars[delta_start + t], 2);
+      fg[0] += params.weight_a_change * CppAD::pow(vars[a_start + t + 1] - vars[a_start + t], 2);
     }
 
     /****************************
@@ -117,7 +86,7 @@ public:
     // starting from 1
     // 0 is initial state
     // initial states are not part of optimizer solver
-    for (int t = 1; t < N; t++) {
+    for (int t = 1; t < params.N; t++) {
       AD<double> x0       = vars[x_start + t - 1], 
                  x1       = vars[x_start + t];
       AD<double> y0       = vars[y_start + t - 1], 
@@ -149,12 +118,12 @@ public:
       //   delta = vars[delta_start + t - 2] * -1;
       // }
       
-      fg[1 + x_start + t] = x1 - (x0 + v0 * CppAD::cos(psi0) * dt);
-      fg[1 + y_start + t] = y1 - (y0 + v0 * CppAD::sin(psi0) * dt);
-      fg[1 + psi_start + t] = psi1 - (psi0 + v0 * (delta / Lf) * dt);
-      fg[1 + v_start + t] = v1 - (v0 + a * dt);
-      fg[1 + cte_start + t] = cte1 - (cte0 + v0 * CppAD::sin(epsi0) * dt);
-      fg[1 + epsi_start + t] = epsi1 - (epsi0 + v0 * (delta / Lf) * dt);
+      fg[1 + x_start + t] = x1 - (x0 + v0 * CppAD::cos(psi0) * params.dt);
+      fg[1 + y_start + t] = y1 - (y0 + v0 * CppAD::sin(psi0) * params.dt);
+      fg[1 + psi_start + t] = psi1 - (psi0 + v0 * (delta / params.Lf) * params.dt);
+      fg[1 + v_start + t] = v1 - (v0 + a * params.dt);
+      fg[1 + cte_start + t] = cte1 - (cte0 + v0 * CppAD::sin(epsi0) * params.dt);
+      fg[1 + epsi_start + t] = epsi1 - (epsi0 + v0 * (delta / params.Lf) * params.dt);
     }
   }
 };
@@ -182,9 +151,9 @@ vector<double> MPC::Solve(Eigen::VectorXd state, Eigen::VectorXd coeffs) {
   //
   // (10 * 6) + (9 * 2)
   // N actuations -> N - 1
-  size_t n_vars = N * 6 + (N - 1) * 2;
+  size_t n_vars = params.N * 6 + (params.N - 1) * 2;
   // number of constraints
-  size_t n_constraints = N * 6;
+  size_t n_constraints = params.N * 6;
 
   // Initial value of the independent variables.
   // SHOULD BE 0 besides initial state.
@@ -278,13 +247,8 @@ vector<double> MPC::Solve(Eigen::VectorXd state, Eigen::VectorXd coeffs) {
   // steering angle (delta) and throttle (a)
   vector<double> actuations_and_mpc_xy = {solution.x[delta_start], solution.x[a_start]};
 
-  // TODO:
-  // instead of returning any value
-  // these values can be stored in object of MPC class
-  // then directly use them in main class instead of returning from here
-
   // x and y trajectory
-  for (int loop = 0; loop < N - 1; loop += 1) {
+  for (int loop = 0; loop < params.N - 1; loop += 1) {
     actuations_and_mpc_xy.push_back(solution.x[x_start + loop + 1]);
     actuations_and_mpc_xy.push_back(solution.x[y_start + loop + 1]);
   }

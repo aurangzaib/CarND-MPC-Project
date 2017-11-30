@@ -1,4 +1,4 @@
-#include <math.h>
+#include <cmath>
 #include <uWS/uWS.h>
 #include <chrono>
 #include <iostream>
@@ -11,6 +11,7 @@
 
 // for convenience
 using json = nlohmann::json;
+hyper_params params2;
 
 // For converting back and forth between radians and degrees.
 constexpr double pi() { return M_PI; }
@@ -106,7 +107,7 @@ int main() {
 
           // from: map coordinate system
           // to: vehicle coordinate system
-          const int N = ptsx.size();
+          const auto N = ptsx.size();
           Eigen::VectorXd waypoints_x(N), waypoints_y(N);
           for (int loop = 0; loop < N; loop += 1) {
             // x and y terms
@@ -127,15 +128,14 @@ int main() {
           // calculate the orientation error
           const double psi_desired = atan(coeffs[1]);
           const double epsi = psi - psi_desired;
-          const double Lf = 2.67;
-          const double dt = 0.05;
+
           // using global kinematic model
-          const double px_ = v * dt, 
+          const double px_ = v * params2.dt,
                        py_ = 0.0, 
-                       psi_ = v * (steering_angle / Lf) * dt, 
-                       v_ = v + throttle * dt, 
-                       cte_ = cte + v * sin(epsi) * dt, 
-                       epsi_ = epsi + v * (steering_angle / Lf) * dt;
+                       psi_ = v * (steering_angle / params2.Lf) * params2.dt,
+                       v_ = v + throttle * params2.dt,
+                       cte_ = cte + v * sin(epsi) * params2.dt,
+                       epsi_ = epsi + v * (steering_angle / params2.Lf) * params2.dt;
 
           // vehicle state vector
           Eigen::VectorXd state(6);
@@ -161,7 +161,9 @@ int main() {
           // the points in the simulator are connected by a Green line
           // x and y are returned from the optimization solver
           for (int loop = 2; loop < vars.size(); loop += 1) {
+            // x values
             if (loop % 2 == 0) { mpc_x_vals.push_back(vars[loop]); }
+            // y values
             else { mpc_y_vals.push_back(vars[loop]); }
           }
 
