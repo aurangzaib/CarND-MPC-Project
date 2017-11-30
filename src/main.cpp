@@ -125,11 +125,11 @@ int main() {
           const double cte = fx - py; // current_y - total_y
 
           // calculate the orientation error
-          // psi_desired = atan(coeff of f'(x))
           const double psi_desired = atan(coeffs[1]);
           const double epsi = psi - psi_desired;
           const double Lf = 2.67;
           const double dt = 0.05;
+          // using global kinematic model
           const double px_ = v * dt, 
                        py_ = 0.0, 
                        psi_ = v * (steering_angle / Lf) * dt, 
@@ -137,7 +137,6 @@ int main() {
                        cte_ = cte + v * sin(epsi) * dt, 
                        epsi_ = epsi + v * (steering_angle / Lf) * dt;
 
-          // TODO: use kinematic model instead of sending 0, 0, 0
           // vehicle state vector
           Eigen::VectorXd state(6);
           state << px_, py_, psi_, v_, cte_, epsi_;

@@ -26,9 +26,11 @@ const double dt = 0.05;
 const double Lf = 2.67;
 
 // reference velocity
-const double ref_v = 40.0;
+const double ref_v = 45.0;
 
 // weights for cost function
+// weight determines importance
+// of a cost function
 const double W_CTE = 8.0;
 const double W_EPSI = 0.30;
 const double W_V = 0.261;
@@ -81,22 +83,22 @@ public:
     // cost based on reference state
     for (int t = 0; t < N; t++) {
       // cte error
-      fg[0] += W_CTE  * CppAD::pow(vars[cte_start + t], 2);
+      fg[0] += W_CTE * CppAD::pow(vars[cte_start + t], 2);
       // orientation (heading) error
       fg[0] += W_EPSI * CppAD::pow(vars[epsi_start + t], 2);
       // velocity error
-      fg[0] += W_V    * CppAD::pow(vars[v_start + t] - ref_v, 2);
+      fg[0] += W_V * CppAD::pow(vars[v_start + t] - ref_v, 2);
     }
     // cost based on control inputs
     // no abrupt control input change
     for (int t = 0; t < N - 1; t++) {
       fg[0] += W_DELTA * CppAD::pow(vars[delta_start + t], 2);
-      fg[0] += W_A     * CppAD::pow(vars[a_start + t], 2);
+      fg[0] += W_A * CppAD::pow(vars[a_start + t], 2);
     }
     // minimize value gap between sequential actuations
     for (int t = 0; t < N - 2; t++) {
       fg[0] += W_DELTA * CppAD::pow(vars[delta_start + t + 1] - vars[delta_start + t], 2);
-      fg[0] += W_A     * CppAD::pow(vars[a_start + t + 1] - vars[a_start + t], 2);
+      fg[0] += W_A * CppAD::pow(vars[a_start + t + 1] - vars[a_start + t], 2);
     }
 
     /****************************
@@ -105,12 +107,12 @@ public:
      ****************************/
 
     // set values of state, and errors variables
-    fg[1 + x_start] = vars[x_start];
-    fg[1 + y_start] = vars[y_start];
-    fg[1 + psi_start] = vars[psi_start];
-    fg[1 + v_start] = vars[v_start];
-    fg[1 + cte_start] = vars[cte_start];
-    fg[1 + epsi_start] = vars[epsi_start];
+    fg[1 + x_start]     = vars[x_start];
+    fg[1 + y_start]     = vars[y_start];
+    fg[1 + psi_start]   = vars[psi_start];
+    fg[1 + v_start]     = vars[v_start];
+    fg[1 + cte_start]   = vars[cte_start];
+    fg[1 + epsi_start]  = vars[epsi_start];
 
     // starting from 1
     // 0 is initial state
@@ -124,12 +126,18 @@ public:
                  psi1     = vars[psi_start + t];
       AD<double> v0       = vars[v_start + t - 1], 
                  v1       = vars[v_start + t];
-      AD<double> f0 = coeffs[0] + coeffs[1] * x0;
-                 
+      AD<double> f0 = 0.0;
+      for (int loop=0; loop < coeffs.size(); loop++) {
+        f0 += coeffs[loop] * pow(x0, loop);
+      }
       AD<double> cte0     = f0 - y0, 
                  cte1     = vars[cte_start + t];
-      AD<double> psi_des  = CppAD::atan(coeffs[1]), // fx'
-                 epsi0    = psi0 - psi_des, 
+      AD<double> psi_des  = 0.0;
+      for (int loop = 1; loop < coeffs.size(); loop++) {
+        psi_des += loop * coeffs[loop] * pow(x0, loop - 1);
+      }
+      psi_des = CppAD::atan(psi_des);
+      AD<double> epsi0    = psi0 - psi_des, 
                  epsi1    = vars[epsi_start + t + 1];
       AD<double> delta    = vars[delta_start + t - 1];
       AD<double> a        = vars[a_start + t - 1];
@@ -182,7 +190,7 @@ vector<double> MPC::Solve(Eigen::VectorXd state, Eigen::VectorXd coeffs) {
   // SHOULD BE 0 besides initial state.
   Dvector vars(n_vars);
   for (size_t loop = 0; loop < n_vars; loop += 1) {
-    vars[loop] = 0;
+    vars[loop] = 0.0;
   }
 
   // set initial variable values
