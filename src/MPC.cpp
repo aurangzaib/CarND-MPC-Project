@@ -1,10 +1,6 @@
 #include "MPC.h"
-#include <cppad/cppad.hpp>
-#include <cppad/ipopt/solve.hpp>
 
-using CppAD::AD;
-
-hyper_params params;
+helper params;
 
 /****************************
 Define start array positions
@@ -83,47 +79,30 @@ public:
     fg[1 + cte_start]   = vars[cte_start];
     fg[1 + epsi_start]  = vars[epsi_start];
 
-    // starting from 1
-    // 0 is initial state
-    // initial states are not part of optimizer solver
-    for (int t = 1; t < params.N; t++) {
-      AD<double> x0       = vars[x_start + t - 1], 
-                 x1       = vars[x_start + t];
-      AD<double> y0       = vars[y_start + t - 1], 
-                 y1       = vars[y_start + t];
-      AD<double> psi0     = vars[psi_start + t - 1], 
-                 psi1     = vars[psi_start + t];
-      AD<double> v0       = vars[v_start + t - 1], 
-                 v1       = vars[v_start + t];
-      AD<double> f0 = 0.0;
-      for (int loop=0; loop < coeffs.size(); loop++) {
-        f0 += coeffs[loop] * pow(x0, loop);
-      }
+    for (int t = 0; t < params.N - 1; t++) {
+      AD<double> x0       = vars[x_start + t], 
+                 x1       = vars[x_start + t + 1];
+      AD<double> y0       = vars[y_start + t], 
+                 y1       = vars[y_start + t + 1];
+      AD<double> psi0     = vars[psi_start + t], 
+                 psi1     = vars[psi_start + t + 1];
+      AD<double> v0       = vars[v_start + t], 
+                 v1       = vars[v_start + t + 1];
+      AD<double> f0       = params.polyeval(coeffs, x0),
+                 psi_des  = params.polyeval(coeffs, x0, true);
       AD<double> cte0     = f0 - y0, 
-                 cte1     = vars[cte_start + t];
-      AD<double> psi_des  = 0.0;
-      for (int loop = 1; loop < coeffs.size(); loop++) {
-        psi_des += loop * coeffs[loop] * pow(x0, loop - 1);
-      }
-      psi_des = CppAD::atan(psi_des);
+                 cte1     = vars[cte_start + t + 1];
       AD<double> epsi0    = psi0 - psi_des, 
                  epsi1    = vars[epsi_start + t + 1];
-      AD<double> delta    = vars[delta_start + t - 1];
-      AD<double> a        = vars[a_start + t - 1];
-      
-      // using previous values for actuations
-      // handling latency
-      // if (t > 1) {
-      //   a = vars[a_start + t - 2];
-      //   delta = vars[delta_start + t - 2] * -1;
-      // }
-      
-      fg[1 + x_start + t] = x1 - (x0 + v0 * CppAD::cos(psi0) * params.dt);
-      fg[1 + y_start + t] = y1 - (y0 + v0 * CppAD::sin(psi0) * params.dt);
-      fg[1 + psi_start + t] = psi1 - (psi0 + v0 * (delta / params.Lf) * params.dt);
-      fg[1 + v_start + t] = v1 - (v0 + a * params.dt);
-      fg[1 + cte_start + t] = cte1 - (cte0 + v0 * CppAD::sin(epsi0) * params.dt);
-      fg[1 + epsi_start + t] = epsi1 - (epsi0 + v0 * (delta / params.Lf) * params.dt);
+      AD<double> delta    = vars[delta_start + t] * -1,
+                 a        = vars[a_start + t];
+
+      fg[2 + x_start + t] = x1 - (x0 + v0 * CppAD::cos(psi0) * params.dt);
+      fg[2 + y_start + t] = y1 - (y0 + v0 * CppAD::sin(psi0) * params.dt);
+      fg[2 + psi_start + t] = psi1 - (psi0 + v0 * (delta / params.Lf) * params.dt);
+      fg[2 + v_start + t] = v1 - (v0 + a * params.dt);
+      fg[2 + cte_start + t] = cte1 - (cte0 + v0 * CppAD::sin(epsi0) * params.dt);
+      fg[2 + epsi_start + t] = epsi1 - (epsi0 + v0 * (delta / params.Lf) * params.dt);
     }
   }
 };
@@ -146,17 +125,13 @@ vector<double> MPC::Solve(Eigen::VectorXd state, Eigen::VectorXd coeffs) {
   double v = state[3];
   double cte = state[4];
   double epsi = state[5];
-  // For example: If the state is a 4 element vector, the actuators is a 2
-  // element vector and there are 10 timesteps. The number of variables is:
-  //
-  // (10 * 6) + (9 * 2)
+
   // N actuations -> N - 1
   size_t n_vars = params.N * 6 + (params.N - 1) * 2;
   // number of constraints
   size_t n_constraints = params.N * 6;
 
   // Initial value of the independent variables.
-  // SHOULD BE 0 besides initial state.
   Dvector vars(n_vars);
   for (size_t loop = 0; loop < n_vars; loop += 1) {
     vars[loop] = 0.0;
@@ -175,16 +150,16 @@ vector<double> MPC::Solve(Eigen::VectorXd state, Eigen::VectorXd coeffs) {
   Dvector vars_upperbound(n_vars);
   // boundaries for x, y, psi, v, cte, epsi
   for (int loop = 0; loop < delta_start; loop += 1) {
-    vars_lowerbound[loop] = -1.0e19;
-    vars_upperbound[loop] = +1.0e19;
+    vars_lowerbound[loop] = -1.0e15;
+    vars_upperbound[loop] = +1.0e15;
   }
   // boundaries for steering angle
-  for (size_t loop = delta_start; loop < a_start; loop += 1) {
+  for (int loop = delta_start; loop < a_start; loop += 1) {
     vars_lowerbound[loop] = -25 * M_PI / 180;
     vars_upperbound[loop] = +25 * M_PI / 180;
   }
   // boundaries for acceleration
-  for (size_t loop = a_start; loop < n_vars; loop += 1) {
+  for (int loop = a_start; loop < n_vars; loop += 1) {
     vars_lowerbound[loop] = -1.0;
     vars_upperbound[loop] = +1.0;
   }
@@ -232,15 +207,18 @@ vector<double> MPC::Solve(Eigen::VectorXd state, Eigen::VectorXd coeffs) {
   CppAD::ipopt::solve_result<Dvector> solution;
 
   // solve the problem
-  CppAD::ipopt::solve<Dvector, FG_eval>(options, vars, vars_lowerbound,
-                                        vars_upperbound, constraints_lowerbound,
-                                        constraints_upperbound, fg_eval, solution);
+  CppAD::ipopt::solve<Dvector, FG_eval>(options, 
+                                        vars, 
+                                        vars_lowerbound,
+                                        vars_upperbound, 
+                                        constraints_lowerbound,
+                                        constraints_upperbound, 
+                                        fg_eval, solution);
 
   // Check some of the solution values
   ok &= solution.status == CppAD::ipopt::solve_result<Dvector>::success;
 
   // https://www.coin-or.org/CppAD/Doc/ipopt_solve.htm
-
   // cost
   auto cost = solution.obj_value;
 

@@ -4,14 +4,13 @@
 #include <iostream>
 #include <thread>
 #include <vector>
-#include "Eigen-3.3/Eigen/Core"
 #include "Eigen-3.3/Eigen/QR"
 #include "MPC.h"
 #include "json.hpp"
 
 // for convenience
 using json = nlohmann::json;
-hyper_params params2;
+helper params2;
 
 // For converting back and forth between radians and degrees.
 constexpr double pi() { return M_PI; }
@@ -33,15 +32,6 @@ string hasData(string s) {
     return s.substr(b1, b2 - b1 + 2);
   }
   return "";
-}
-
-// Evaluate a polynomial.
-double polyeval(Eigen::VectorXd coeffs, double x) {
-  double result = 0.0;
-  for (int i = 0; i < coeffs.size(); i++) {
-    result += coeffs[i] * pow(x, i);
-  }
-  return result;
 }
 
 // Fit a polynomial.
@@ -122,20 +112,20 @@ int main() {
           auto coeffs = polyfit(waypoints_x, waypoints_y, 3);
 
           // calculate the cross track error
-          const double fx = polyeval(coeffs, px);
+          const double fx = params2.polyeval(coeffs, px);
           const double cte = fx - py; // current_y - total_y
 
           // calculate the orientation error
-          const double psi_desired = atan(coeffs[1]);
+          double psi_desired = params2.polyeval(coeffs, px, true);
           const double epsi = psi - psi_desired;
 
           // using global kinematic model
-          const double px_ = v * params2.dt,
-                       py_ = 0.0, 
-                       psi_ = v * (steering_angle / params2.Lf) * params2.dt,
-                       v_ = v + throttle * params2.dt,
-                       cte_ = cte + v * sin(epsi) * params2.dt,
-                       epsi_ = epsi + v * (steering_angle / params2.Lf) * params2.dt;
+          const double px_    = v * params2.dt,
+                       py_    = 0.0,
+                       psi_   = v * (-steering_angle / params2.Lf) * params2.dt,
+                       v_     = v + throttle * params2.dt,
+                       cte_   = cte + v * sin(epsi) * params2.dt,
+                       epsi_  = epsi + v * (-steering_angle / params2.Lf) * params2.dt;
 
           // vehicle state vector
           Eigen::VectorXd state(6);
@@ -151,7 +141,7 @@ int main() {
           json msgJson;
           // NOTE: Remember to divide by deg2rad(25) before you send the steering value back.
           // Otherwise the values will be in between [-deg2rad(25), deg2rad(25] instead of [-1, 1].
-          msgJson["steering_angle"] = - steer_value / deg2rad(25);
+          msgJson["steering_angle"] = steer_value;
           msgJson["throttle"] = throttle_value;
 
           //Display the MPC predicted trajectory 
@@ -179,7 +169,7 @@ int main() {
           // y -> f(x) using polyeval
           for (int car_heading = 0; car_heading < 100; car_heading += 5) {
             auto x = double(car_heading);
-            auto y = polyeval(coeffs, x);
+            auto y = params2.polyeval(coeffs, x);
             next_x_vals.push_back(x);
             next_y_vals.push_back(y);
           }
@@ -192,7 +182,7 @@ int main() {
           // Latency
           // The purpose is to mimic real driving conditions where
           // the car does not actuate the commands instantly.
-          // this_thread::sleep_for(chrono::milliseconds(100));
+          this_thread::sleep_for(chrono::milliseconds(100));
           ws.send(msg.data(), msg.length(), uWS::OpCode::TEXT);
         }
       } else {
