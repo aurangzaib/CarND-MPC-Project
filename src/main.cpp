@@ -11,21 +11,6 @@
 using json = nlohmann::json;
 helper params2;
 
-// Checks if the SocketIO event has JSON data.
-// If there is data the JSON object in string format will be returned,
-// else the empty string "" will be returned.
-string hasData(string s) {
-  auto found_null = s.find("null");
-  auto b1 = s.find_first_of("[");
-  auto b2 = s.rfind("}]");
-  if (found_null != string::npos) {
-    return "";
-  } else if (b1 != string::npos && b2 != string::npos) {
-    return s.substr(b1, b2 - b1 + 2);
-  }
-  return "";
-}
-
 int main() {
   uWS::Hub h;
 
@@ -40,7 +25,7 @@ int main() {
     string sdata = string(data).substr(0, length);
     cout << sdata << endl;
     if (sdata.size() > 2 && sdata[0] == '4' && sdata[1] == '2') {
-      string s = hasData(sdata);
+      string s = params2.hasData(sdata);
       if (s != "") {
         auto j = json::parse(s);
         string event = j[0].get<string>();
@@ -54,10 +39,6 @@ int main() {
           const double v = j[1]["speed"];
           const double steering_angle = j[1]["steering_angle"];
           const double throttle = j[1]["throttle"];
-          /*
-           * Calculate steering angle and throttle using MPC.
-           * Both are in between [-1, 1].
-           */
 
           /****************************
            Transformation

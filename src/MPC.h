@@ -10,11 +10,11 @@
 using namespace std;
 using CppAD::AD;
 
-/****************************
-MPC hyper parameters
-****************************/
-
 struct helper {
+
+  /****************************
+   MPC hyper parameters
+  ****************************/
 
   // N  -> number of actuations
   // dt -> time elapsed between actuations
@@ -43,6 +43,10 @@ struct helper {
   const double weight_delta_change = 12;
   const double weight_a = 12;
   const double weight_a_change = 12;
+
+  /****************************
+   Helper methods
+  ****************************/
 
   // evaluate polynomial
   template<typename T>
@@ -93,6 +97,20 @@ struct helper {
   // radian to degree
   double rad2deg(double x) { return x * 180 / M_PI; }
 
+  // Checks if the SocketIO event has JSON data.
+  // If there is data the JSON object in string format will be returned,
+  // else the empty string "" will be returned.
+  string hasData(string s) {
+    auto found_null = s.find("null");
+    auto b1 = s.find_first_of("[");
+    auto b2 = s.rfind("}]");
+    if (found_null != string::npos) {
+      return "";
+    } else if (b1 != string::npos && b2 != string::npos) {
+      return s.substr(b1, b2 - b1 + 2);
+    }
+    return "";
+  }
 };
 
 class MPC {
