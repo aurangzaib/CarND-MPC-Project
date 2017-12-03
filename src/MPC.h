@@ -29,7 +29,7 @@ struct helper {
   // Lf was tuned until the the radius formed by the simulating the model
   // presented in the classroom matched the previous radius.
   //
-  // length from front to CoG that has a similar radius.
+  // length from front wheel to CoG that has a similar radius.
   const double Lf = 2.67;
 
   // reference velocity

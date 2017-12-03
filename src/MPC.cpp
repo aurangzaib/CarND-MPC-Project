@@ -97,12 +97,12 @@ public:
       AD<double> delta    = vars[delta_start + t] * -1,
                  a        = vars[a_start + t];
 
-      fg[2 + x_start + t] = x1 - (x0 + v0 * CppAD::cos(psi0) * params.dt);
-      fg[2 + y_start + t] = y1 - (y0 + v0 * CppAD::sin(psi0) * params.dt);
-      fg[2 + psi_start + t] = psi1 - (psi0 + v0 * (delta / params.Lf) * params.dt);
-      fg[2 + v_start + t] = v1 - (v0 + a * params.dt);
-      fg[2 + cte_start + t] = cte1 - (cte0 + v0 * CppAD::sin(epsi0) * params.dt);
-      fg[2 + epsi_start + t] = epsi1 - (epsi0 + v0 * (delta / params.Lf) * params.dt);
+      fg[2 + x_start + t]     = x1 - (x0 + v0 * CppAD::cos(psi0) * params.dt);
+      fg[2 + y_start + t]     = y1 - (y0 + v0 * CppAD::sin(psi0) * params.dt);
+      fg[2 + psi_start + t]   = psi1 - (psi0 + v0 * (delta / params.Lf) * params.dt);
+      fg[2 + v_start + t]     = v1 - (v0 + a * params.dt);
+      fg[2 + cte_start + t]   = cte1 - (cte0 + v0 * CppAD::sin(epsi0) * params.dt);
+      fg[2 + epsi_start + t]  = epsi1 - (epsi0 + v0 * (delta / params.Lf) * params.dt);
     }
   }
 };
@@ -119,11 +119,11 @@ vector<double> MPC::Solve(Eigen::VectorXd state, Eigen::VectorXd coeffs) {
   typedef CPPAD_TESTVECTOR(double) Dvector;
 
   // Set the number of model variables (includes both states and errors).
-  double x = state[0];
-  double y = state[1];
-  double psi = state[2];
-  double v = state[3];
-  double cte = state[4];
+  double x    = state[0];
+  double y    = state[1];
+  double psi  = state[2];
+  double v    = state[3];
+  double cte  = state[4];
   double epsi = state[5];
 
   // N actuations -> N - 1
@@ -138,11 +138,11 @@ vector<double> MPC::Solve(Eigen::VectorXd state, Eigen::VectorXd coeffs) {
   }
 
   // set initial variable values
-  vars[x_start] = x;
-  vars[y_start] = y;
-  vars[psi_start] = psi;
-  vars[v_start] = v;
-  vars[cte_start] = cte;
+  vars[x_start]    = x;
+  vars[y_start]    = y;
+  vars[psi_start]  = psi;
+  vars[v_start]    = v;
+  vars[cte_start]  = cte;
   vars[epsi_start] = epsi;
 
   // lower and upper boundaries for variables
