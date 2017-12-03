@@ -1,5 +1,4 @@
-# CarND-Controls-MPC
-Self-Driving Car Engineer Nanodegree Program
+# Model Predictive Control (MPC) Project Setup Guide
 
 ## Dependencies
 

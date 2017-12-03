@@ -1,14 +1,15 @@
 # Model Predicitve Control (MPC) Project 
 
 
-| Notes    | |
-|:-----------|:-------------|
-| **Source Code**  | [https://github.com/aurangzaib/CarND-MPC-Project](https://github.com/aurangzaib/CarND-MPC-Project)  |
-| **Overview**  | `README.md`  |
-| **Setup**  | `SETUP.md`  |
-| **How to run**  | `mkdir build && cd build` | 
-| |`cmake .. && make`     	|
-| |`./mpc`     		|
+| **Source Code**  			| [https://github.com/aurangzaib/CarND-MPC-Project](https://github.com/aurangzaib/CarND-MPC-Project) |
+|:-------------------------|:-------------|
+| **Overview**  				| `README.md`  |
+| **Setup**  					| `SETUP.md`  |
+|**MPC Hyperparameters**	| `src/mpc.h`|
+|**MPC Implementation**		| `src/mpc.cpp`|
+| **How to run**  			| `mkdir build && cd build` | 
+| 								| `cmake .. && make`|
+| 								| `./mpc`|
 
 
 ## Introduction:
@@ -17,19 +18,19 @@ Model Predictive Control is used to estimate optimized `acceleration`, `steering
 
 MPC works better than PID controller as it can anticipate future events and take control accordingly. It also deals with actuation delays better than PID controller.
 
-The steps of the project are the following:
+The steps of the project are as following:
 
-- Read the data from simulator.
+- Read `px, py ` and `v` from simulator
 
-- Initialize MPC.
+- Initialize MPC
 
-- Define Vechile Model.
+- Define Vehicle Model using Global Kinematic Model
 
-- Define Constraints.
+- Define Constraints
 
 - Define Cost function
 
-- Run State Feedback Loop and call Optimzation Solver passing it the current state.		
+- Run State Feedback Loop and call Optimzation Solver passing it the current state
 
 ## Explanation of the code:
 
@@ -81,5 +82,19 @@ Following hyperparemters are used in MPC:
 |Change in acceleration cost weight|`weight_a_change`|12|
 
 ## Results
+
+
+Following points sum up the results and conclusion for MPC:
+
+- Calculation of actuations using MPC allows to drive a car much better compared to PID controllers.
+
+- There is less oscillation in car movements and acceleration profile.
+
+- As MPC is mathematically more complex than PID controller, different parameters can be controlled using cost function weights e.g. CTE, steering, orientation weights etc.
+
+- Latency can be better handled in MPC than PID controller.
+
+The video below shows results of MPC:
+
 
 ![Results](result-mpc.gif)
