@@ -62,11 +62,15 @@ int main() {
 
           // calculate the cross track error
           const double fx = params2.polyeval(coeffs, px);
-          const double cte = fx - py; // current_y - total_y
+          // The polynomial is fitted to waypoints in vehicle coordinate
+          // therefore your py should also be in vehicle coordinate which is 0
+          const double cte = fx - 0; // current_y - total_y
 
           // calculate the orientation error
           double psi_desired = params2.polyeval(coeffs, px, true);
-          const double epsi = psi - psi_desired;
+          // psi is from global map coordinate
+          // it should be 0 in vehicle coordinate
+          const double epsi = 0 - psi_desired;
 
           // using global kinematic model
           const double px_    = v * params2.dt,
