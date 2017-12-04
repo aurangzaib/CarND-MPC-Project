@@ -96,7 +96,7 @@ Following points sum up the results and conclusion for MPC:
 
 - Latency can be better handled in MPC than PID controller.
 
-The video below shows results of MPC:
+The video (GIF) below shows results of MPC:
 
 
 ![Results](result-mpc.gif)
