@@ -65,6 +65,8 @@ Following table summarizes the purpose of each file:
 
 ## Hyperparameters in MPC:
 
+In general, smaller dt gives better accuracy but that will require higher N for given horizon (N*dt). However, increase N will result in longer computational time which effectively increase the latency.
+
 Following hyperparemters are used in MPC:
 
 | Param | Symbol | Value |
@@ -78,7 +80,7 @@ Following hyperparemters are used in MPC:
 |Velocity cost weight|`weight_v`|1|
 |Steering cost weight|`weight_delta`|12e2|
 |Change in steering cost weight|`weight_delta_change`|12|
-|Accelration cost weight|`weight_a`|12|
+|Acceleration cost weight|`weight_a`|12|
 |Change in acceleration cost weight|`weight_a_change`|12|
 
 ## Results
